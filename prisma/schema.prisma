@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleType {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  SUPERVISOR
+  STAFF
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Outlet {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  isActive  Boolean  @default(true)
+  
+  users          User[]        
+  kpiTargets     KpiTarget[]
+  dailyReports   DailyReport[]
+  weeklySummaries WeeklySummary[]
+  incidentLogs   IncidentLog[]
+}
+
+model Division {
+  id        String   @id @default(cuid())
+  name      String   @unique 
+  users     User[]
+  kpis      KpiDefinition[]
+  summaries WeeklySummary[]
+}
+
+model User {
+  id         String   @id @default(cuid())
+  name       String
+  email      String   @unique
+  password   String
+  role       RoleType @default(STAFF)
+  divisionId String?
+  isActive   Boolean  @default(true)
+  
+  division   Division? @relation(fields: [divisionId], references: [id])
+  outlets    Outlet[]  
+  reports    DailyReport[]
+  approvals  Approval[]
+}
+
+model KpiDefinition {
+  id          String   @id @default(cuid())
+  divisionId  String
+  name        String   
+  measureUnit String   
+  isActive    Boolean  @default(true)
+
+  division    Division @relation(fields: [divisionId], references: [id])
+  targets     KpiTarget[]
+  dailyItems  DailyItem[]
+  incidents   IncidentLog[]
+}
+
+model KpiTarget {
+  id          String   @id @default(cuid())
+  kpiId       String
+  outletId    String
+  targetValue Float
+  periodType  String   
+  validFrom   DateTime
+  validTo     DateTime?
+
+  kpi         KpiDefinition @relation(fields: [kpiId], references: [id])
+  outlet      Outlet        @relation(fields: [outletId], references: [id])
+}
+
+model DailyReport {
+  id        String   @id @default(cuid())
+  userId    String
+  outletId  String
+  date      DateTime @db.Date 
+  status    ReportStatus @default(DRAFT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  items     DailyItem[]
+  approvals Approval[]
+
+  @@unique([userId, outletId, date]) 
+}
+
+model DailyItem {
+  id              String   @id @default(cuid())
+  reportId        String
+  kpiId           String
+  commitmentValue Float?   
+  actualValue     Float?   
+  gap             Float?   
+  problemDesc     String?  
+
+  report          DailyReport   @relation(fields: [reportId], references: [id])
+  kpi             KpiDefinition @relation(fields: [kpiId], references: [id])
+  kaizen          Kaizen?       
+}
+
+model Kaizen {
+  id              String   @id @default(cuid())
+  dailyItemId     String   @unique
+  proposedSolution String  
+  status          String   @default("OPEN") 
+  createdAt       DateTime @default(now())
+
+  dailyItem       DailyItem @relation(fields: [dailyItemId], references: [id])
+}
+
+model Approval {
+  id         String   @id @default(cuid())
+  reportId   String
+  approverId String
+  status     ReportStatus
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  report     DailyReport @relation(fields: [reportId], references: [id])
+  approver   User        @relation(fields: [approverId], references: [id])
+}
+
+model IncidentLog {
+  id          String   @id @default(cuid())
+  outletId    String
+  kpiId       String
+  date        DateTime @db.Date
+  description String   
+  createdAt   DateTime @default(now())
+
+  outlet      Outlet        @relation(fields: [outletId], references: [id])
+  kpi         KpiDefinition @relation(fields: [kpiId], references: [id])
+}
+
+model WeeklySummary {
+  id            String   @id @default(cuid())
+  outletId      String
+  divisionId    String
+  periodStart   DateTime @db.Date
+  periodEnd     DateTime @db.Date
+  aggregatedData Json    
+  conclusion    String?  
+  createdAt     DateTime @default(now())
+
+  outlet        Outlet   @relation(fields: [outletId], references: [id])
+  division      Division @relation(fields: [divisionId], references: [id])
+}
