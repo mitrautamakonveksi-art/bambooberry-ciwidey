@@ -1,5 +1,7 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/shared/lib/prisma"
 import { getAggregatedSummary, saveSummaryConclusion } from "@/server/actions/summary-actions"
+import { getCurrentUser } from "@/shared/lib/auth"
+import { getEffectiveOutlet } from "@/shared/lib/outlet-context"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -7,8 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ExportCsvButton from "@/components/ExportCsvButton"
-
-const prisma = new PrismaClient()
 
 interface SummaryPageProps {
   searchParams: Promise<{
@@ -20,11 +20,17 @@ interface SummaryPageProps {
 }
 
 export default async function SummaryPage({ searchParams }: SummaryPageProps) {
-  const outlets = await prisma.outlet.findMany({ where: { isActive: true } })
-  const divisions = await prisma.division.findMany()
+  const user = await getCurrentUser()
+  const effectiveOutlet = await getEffectiveOutlet(user)
+
+  const outlets = await prisma.outlet.findMany({ where: { isActive: true }, orderBy: { name: "asc" } })
+  const divisions = await prisma.division.findMany({ orderBy: { name: "asc" } })
 
   const resolvedParams = await searchParams
-  const selectedOutlet = resolvedParams.outletId || outlets[0]?.id
+  const fallbackOutlet = effectiveOutlet.isConsolidated
+    ? "ALL"
+    : (effectiveOutlet.outletId || outlets[0]?.id || "ALL")
+  const selectedOutlet = resolvedParams.outletId || fallbackOutlet
   const selectedDivision = resolvedParams.divisionId || divisions[0]?.id
   
   // Default: 7 hari terakhir
@@ -54,7 +60,10 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
               <Label>Outlet</Label>
               <Select name="outletId" defaultValue={selectedOutlet}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{outlets.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  <SelectItem value="ALL">Semua Cabang (Konsolidasi)</SelectItem>
+                  {outlets.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">

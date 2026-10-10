@@ -1,3 +1,7 @@
+// ============================================================================
+// IBMS BAMBOOBERRY - ENTERPRISE PRISMA SCHEMA DEFINITION
+// ============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,6 +10,10 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ----------------------------------------------------------------------------
+// ENUMS & COMMON TYPES
+// ----------------------------------------------------------------------------
 
 enum RoleType {
   SUPER_ADMIN
@@ -22,25 +30,199 @@ enum ReportStatus {
   REJECTED
 }
 
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  SICK
+  PERMISSION
+  ABSENT
+}
+
+enum ContractType {
+  PKWT
+  PKWTT
+  PROBATION
+  DAILY_WORKER
+}
+
+enum CandidateStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFERED
+  HIRED
+  REJECTED
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum AcquisitionChannel {
+  GMAPS
+  INSTAGRAM
+  TIKTOK
+  TOUR_GUIDE
+  LOCAL_RECOMMENDATION
+  WALK_IN
+  OTHER
+}
+
+enum SentimentType {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum ChecklistType {
+  OPENING
+  CLOSING
+  HYGIENE
+  EQUIPMENT_TEMPERATURE
+  SOP_COMPLIANCE
+}
+
+enum ComplaintCategory {
+  FOOD_QUALITY
+  SERVICE_SPEED
+  CLEANLINESS
+  STAFF_ATTITUDE
+  BILLING
+  FACILITIES
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+}
+
+enum ProductType {
+  FINISHED_GOOD
+  SEMI_FINISHED
+  RAW_MATERIAL
+}
+
+enum PoStatus {
+  DRAFT
+  SENT
+  RECEIVED_PARTIAL
+  RECEIVED_FULL
+  CANCELLED
+}
+
+enum QcStatus {
+  PASSED
+  CONDITIONALLY_PASSED
+  REJECTED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  IN_REPAIR
+  COMPLETED
+  CANCELLED
+}
+
+enum ScoreStatus {
+  GREEN
+  YELLOW
+  RED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  LOGIN
+  EXPORT
+}
+
+// ----------------------------------------------------------------------------
+// 1. MASTER ORGANISASI & RBAC (PRESERVED & EXTENDED)
+// ----------------------------------------------------------------------------
+
 model Outlet {
   id        String   @id @default(cuid())
   name      String
   location  String?
+  phone     String?
+  address   String?
   isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
   
-  users          User[]        
-  kpiTargets     KpiTarget[]
-  dailyReports   DailyReport[]
+  // Relasi Eksisting (Preserved)
+  users           User[]        
+  kpiTargets      KpiTarget[]
+  dailyReports    DailyReport[]
   weeklySummaries WeeklySummary[]
-  incidentLogs   IncidentLog[]
+  incidentLogs    IncidentLog[]
+
+  // Relasi Modul Baru
+  attendances            Attendance[]
+  shiftSchedules         ShiftSchedule[]
+  turnoverRecords        TurnoverRecord[]
+  cashSessions           CashRegisterSession[]
+  posReconciliations     PosReconciliation[]
+  expenseRequests        ExpenseRequest[]
+  customerVisits         CustomerVisitLog[]
+  customerReviews        CustomerReview[]
+  checklistSubmissions   DailyChecklistSubmission[]
+  customerComplaints     CustomerComplaint[]
+  inventoryItems         OutletInventoryItem[]
+  stockOpnames           StockOpname[]
+  wasteLogs              WasteLog[]
+  maintenanceTickets     MaintenanceTicket[]
+  purchaseOrders         PurchaseOrder[]
+  receivingQcs           ReceivingQc[]
+  kpiSnapshots           ExecutiveKpiSnapshot[]
+  earlyWarnings          EarlyWarningAlert[]
+  executiveDecisions     ExecutiveDecision[]
+  aiAnomalies            AiAnomalyDetection[]
+  recruitmentJobs        RecruitmentJob[]
 }
 
 model Division {
-  id        String   @id @default(cuid())
-  name      String   @unique 
-  users     User[]
-  kpis      KpiDefinition[]
-  summaries WeeklySummary[]
+  id          String   @id @default(cuid())
+  name        String   @unique 
+  description String?
+  createdAt   DateTime @default(now())
+  
+  // Relasi Eksisting (Preserved)
+  users       User[]
+  kpis        KpiDefinition[]
+  summaries   WeeklySummary[]
+
+  // Relasi Modul Baru
+  trainingPrograms      TrainingProgram[]
+  recruitmentJobs       RecruitmentJob[]
+  checklistTemplates    DailyChecklistTemplate[]
+  kpiWeights            KpiWeight[]
+  kpiSnapshots          ExecutiveKpiSnapshot[]
+  executiveDecisions    ExecutiveDecision[]
 }
 
 model User {
@@ -51,12 +233,185 @@ model User {
   role       RoleType @default(STAFF)
   divisionId String?
   isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
   
+  // Relasi Eksisting (Preserved)
   division   Division? @relation(fields: [divisionId], references: [id])
   outlets    Outlet[]  
   reports    DailyReport[]
   approvals  Approval[]
+
+  // Relasi Modul Baru
+  employeeProfile        EmployeeProfile?
+  attendances            Attendance[]
+  shiftSchedules         ShiftSchedule[]
+  interviewsConducted    InterviewScorecard[]
+  cashSessions           CashRegisterSession[]
+  expenseRequests        ExpenseRequest[]
+  expenseApprovals       ExpenseApproval[]
+  checklistSubmissions   DailyChecklistSubmission[]
+  stockOpnamesConducted  StockOpname[]
+  wasteLogsRecorded      WasteLog[]
+  maintenanceTickets     MaintenanceTicket[]
+  purchaseOrdersCreated  PurchaseOrder[]
+  receivingQcsConducted  ReceivingQc[]
+  executiveDecisions     ExecutiveDecision[]
+  auditLogs              AuditLog[]
+  aiQueries              AiQueryHistory[]
 }
+
+model RolePermission {
+  id            String   @id @default(cuid())
+  role          RoleType
+  permissionKey String
+  canCreate     Boolean  @default(false)
+  canRead       Boolean  @default(true)
+  canUpdate     Boolean  @default(false)
+  canDelete     Boolean  @default(false)
+
+  @@unique([role, permissionKey])
+}
+
+// ----------------------------------------------------------------------------
+// 2. MODUL HR (HUMAN RESOURCES)
+// ----------------------------------------------------------------------------
+
+model EmployeeProfile {
+  id               String       @id @default(cuid())
+  userId           String       @unique
+  nik              String?      @unique
+  positionTitle    String
+  phone            String?
+  joinDate         DateTime     @db.Date
+  contractType     ContractType @default(PKWT)
+  contractEndDate  DateTime?    @db.Date
+  baseSalary       Float?
+  emergencyContact String?
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainings       EmployeeTraining[]
+  turnoverRecord  TurnoverRecord?
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  userId         String
+  outletId       String
+  date           DateTime         @db.Date
+  status         AttendanceStatus @default(PRESENT)
+  clockIn        DateTime?
+  clockOut       DateTime?
+  clockInPhoto   String?
+  clockOutPhoto  String?
+  lateMinutes    Int              @default(0)
+  workHours      Float            @default(0)
+  notes          String?
+  createdAt      DateTime         @default(now())
+
+  user           User             @relation(fields: [userId], references: [id])
+  outlet         Outlet           @relation(fields: [outletId], references: [id])
+
+  @@unique([userId, outletId, date])
+  @@index([outletId, date])
+}
+
+model ShiftSchedule {
+  id        String   @id @default(cuid())
+  userId    String
+  outletId  String
+  shiftDate DateTime @db.Date
+  shiftType String
+  notes     String?
+
+  user      User     @relation(fields: [userId], references: [id])
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+
+  @@unique([userId, outletId, shiftDate])
+}
+
+model RecruitmentJob {
+  id           String          @id @default(cuid())
+  title        String
+  divisionId   String
+  outletId     String?
+  status       String          @default("OPEN")
+  requirements String
+  createdAt    DateTime        @default(now())
+
+  division     Division        @relation(fields: [divisionId], references: [id])
+  outlet       Outlet?         @relation(fields: [outletId], references: [id])
+  candidates   CandidateApplication[]
+}
+
+model CandidateApplication {
+  id            String          @id @default(cuid())
+  jobId         String
+  candidateName String
+  phone         String
+  email         String?
+  resumeUrl     String?
+  status        CandidateStatus @default(APPLIED)
+  appliedDate   DateTime        @default(now())
+
+  job           RecruitmentJob  @relation(fields: [jobId], references: [id])
+  scorecards    InterviewScorecard[]
+}
+
+model InterviewScorecard {
+  id             String               @id @default(cuid())
+  applicationId  String
+  interviewerId  String
+  technicalScore Int
+  attitudeScore  Int
+  cultureScore   Int
+  notes          String?
+  recommendation String
+  createdAt      DateTime             @default(now())
+
+  application    CandidateApplication @relation(fields: [applicationId], references: [id])
+  interviewer    User                 @relation(fields: [interviewerId], references: [id])
+}
+
+model TrainingProgram {
+  id            String   @id @default(cuid())
+  divisionId    String
+  title         String
+  description   String
+  durationHours Float
+  createdAt     DateTime @default(now())
+
+  division      Division @relation(fields: [divisionId], references: [id])
+  attendees     EmployeeTraining[]
+}
+
+model EmployeeTraining {
+  id             String          @id @default(cuid())
+  employeeId     String
+  programId      String
+  completionDate DateTime        @db.Date
+  score          Float?
+  status         String          @default("COMPLETED")
+
+  employee       EmployeeProfile @relation(fields: [employeeId], references: [id])
+  program        TrainingProgram @relation(fields: [programId], references: [id])
+}
+
+model TurnoverRecord {
+  id         String          @id @default(cuid())
+  employeeId String          @unique
+  outletId   String
+  resignDate DateTime        @db.Date
+  reason     String
+  feedback   String?
+
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id])
+  outlet     Outlet          @relation(fields: [outletId], references: [id])
+}
+
+// ----------------------------------------------------------------------------
+// 3. LAPORAN HARIAN & KPI (PRESERVED & LINKED TO HR & EXECUTIVE)
+// ----------------------------------------------------------------------------
 
 model KpiDefinition {
   id          String   @id @default(cuid())
@@ -65,44 +420,54 @@ model KpiDefinition {
   measureUnit String   
   isActive    Boolean  @default(true)
 
-  division    Division @relation(fields: [divisionId], references: [id])
+  // Relasi Eksisting (Preserved)
+  division    Division      @relation(fields: [divisionId], references: [id])
   targets     KpiTarget[]
   dailyItems  DailyItem[]
   incidents   IncidentLog[]
+
+  // Relasi Modul Baru
+  weights     KpiWeight[]
+  earlyAlerts EarlyWarningAlert[]
 }
 
 model KpiTarget {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   kpiId       String
   outletId    String
   targetValue Float
-  periodType  String   
+  periodType  String
   validFrom   DateTime
   validTo     DateTime?
 
   kpi         KpiDefinition @relation(fields: [kpiId], references: [id])
   outlet      Outlet        @relation(fields: [outletId], references: [id])
+
+  @@index([outletId, periodType])
 }
 
 model DailyReport {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
   outletId  String
-  date      DateTime @db.Date 
+  date      DateTime     @db.Date 
   status    ReportStatus @default(DRAFT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id])
-  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+  outlet    Outlet       @relation(fields: [outletId], references: [id])
   items     DailyItem[]
   approvals Approval[]
 
   @@unique([userId, outletId, date]) 
+  @@index([outletId, date])
+  @@index([status])
+  @@index([date])
 }
 
 model DailyItem {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   reportId        String
   kpiId           String
   commitmentValue Float?   
@@ -110,55 +475,646 @@ model DailyItem {
   gap             Float?   
   problemDesc     String?  
 
-  report          DailyReport   @relation(fields: [reportId], references: [id])
+  report          DailyReport   @relation(fields: [reportId], references: [id], onDelete: Cascade)
   kpi             KpiDefinition @relation(fields: [kpiId], references: [id])
   kaizen          Kaizen?       
+
+  @@index([reportId, kpiId])
 }
 
 model Kaizen {
-  id              String   @id @default(cuid())
-  dailyItemId     String   @unique
+  id               String    @id @default(cuid())
+  dailyItemId      String    @unique
   proposedSolution String  
-  status          String   @default("OPEN") 
-  createdAt       DateTime @default(now())
+  status           String    @default("OPEN")
+  createdAt        DateTime  @default(now())
 
-  dailyItem       DailyItem @relation(fields: [dailyItemId], references: [id])
+  dailyItem        DailyItem @relation(fields: [dailyItemId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Approval {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   reportId   String
   approverId String
   status     ReportStatus
   notes      String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime     @default(now())
 
-  report     DailyReport @relation(fields: [reportId], references: [id])
-  approver   User        @relation(fields: [approverId], references: [id])
+  report     DailyReport  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  approver   User         @relation(fields: [approverId], references: [id])
 }
 
 model IncidentLog {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   outletId    String
   kpiId       String
-  date        DateTime @db.Date
+  date        DateTime      @db.Date
   description String   
-  createdAt   DateTime @default(now())
+  createdAt   DateTime      @default(now())
 
   outlet      Outlet        @relation(fields: [outletId], references: [id])
   kpi         KpiDefinition @relation(fields: [kpiId], references: [id])
 }
 
 model WeeklySummary {
-  id            String   @id @default(cuid())
+  id             String   @id @default(cuid())
+  outletId       String
+  divisionId     String
+  periodStart    DateTime @db.Date
+  periodEnd      DateTime @db.Date
+  aggregatedData Json    
+  conclusion     String?  
+  createdAt      DateTime @default(now())
+
+  outlet         Outlet   @relation(fields: [outletId], references: [id])
+  division       Division @relation(fields: [divisionId], references: [id])
+}
+
+// ----------------------------------------------------------------------------
+// 4. MODUL FINANCE (KEUANGAN & KASIR)
+// ----------------------------------------------------------------------------
+
+model AccountCategory {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  name        String
+  type        AccountType
+  
+  accounts    Account[]
+}
+
+model Account {
+  id          String          @id @default(cuid())
+  categoryId  String
+  code        String          @unique
+  name        String
+  description String?
+
+  category    AccountCategory @relation(fields: [categoryId], references: [id])
+  entries     TransactionEntry[]
+}
+
+model CashRegisterSession {
+  id                 String    @id @default(cuid())
+  outletId           String
+  cashierUserId      String
+  openedAt           DateTime  @default(now())
+  closedAt           DateTime?
+  openingFloat       Float
+  totalCashSales     Float     @default(0)
+  totalNonCashSales  Float     @default(0)
+  actualCashCount    Float?
+  cashDifference     Float?
+  status             String    @default("OPEN")
+  notes              String?
+
+  outlet             Outlet    @relation(fields: [outletId], references: [id])
+  cashier            User      @relation(fields: [cashierUserId], references: [id])
+
+  @@index([outletId, openedAt])
+}
+
+model PosReconciliation {
+  id                String   @id @default(cuid())
+  outletId          String
+  reconDate         DateTime @db.Date
+  posGrossSales     Float
+  posNetSales       Float
+  cashCollected     Float
+  edcCollected      Float
+  qrisCollected     Float
+  discrepancyAmount Float    @default(0)
+  discrepancyNotes  String?
+  status            String   @default("MATCHED")
+
+  outlet            Outlet   @relation(fields: [outletId], references: [id])
+
+  @@unique([outletId, reconDate])
+}
+
+model TransactionEntry {
+  id          String      @id @default(cuid())
+  outletId    String
+  accountId   String
+  date        DateTime    @db.Date
+  amount      Float
+  type        String
+  description String
+  referenceNo String?
+  proofUrl    String?
+  createdAt   DateTime    @default(now())
+
+  account     Account     @relation(fields: [accountId], references: [id])
+
+  @@index([outletId, date])
+}
+
+model ExpenseRequest {
+  id          String        @id @default(cuid())
+  outletId    String
+  requesterId String
+  category    String
+  amount      Float
+  description String
+  proofUrl    String?
+  currentTier Int           @default(1)
+  status      ExpenseStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+
+  outlet      Outlet        @relation(fields: [outletId], references: [id])
+  requester   User          @relation(fields: [requesterId], references: [id])
+  approvals   ExpenseApproval[]
+
+  @@index([outletId, status])
+}
+
+model ExpenseApproval {
+  id          String        @id @default(cuid())
+  requestId   String
+  approverId String
+  tierLevel   Int
+  status      ExpenseStatus
+  notes       String?
+  actionAt    DateTime      @default(now())
+
+  request     ExpenseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver    User           @relation(fields: [approverId], references: [id])
+}
+
+// ----------------------------------------------------------------------------
+// 5. MODUL MARKETING (PELANGGAN & CHANNEL NON-DISCOUNT)
+// ----------------------------------------------------------------------------
+
+model CustomerProfile {
+  id             String   @id @default(cuid())
+  phone          String   @unique
+  name           String?
+  email          String?
+  firstVisitDate DateTime @db.Date
+  lastVisitDate  DateTime @db.Date
+  totalVisits    Int      @default(1)
+  totalSpend     Float    @default(0)
+  notes          String?
+
+  visits         CustomerVisitLog[]
+
+  @@index([phone])
+}
+
+model CustomerVisitLog {
+  id                 String             @id @default(cuid())
+  customerId         String
+  outletId           String
+  visitDate          DateTime           @db.Date
+  tableNo            String?
+  pax                Int                @default(1)
+  billTotal          Float
+  acquisitionChannel AcquisitionChannel @default(WALK_IN)
+
+  customer           CustomerProfile    @relation(fields: [customerId], references: [id])
+  outlet             Outlet             @relation(fields: [outletId], references: [id])
+
+  @@index([outletId, visitDate])
+}
+
+model ContentCampaign {
+  id           String   @id @default(cuid())
+  title        String
+  channel      String
+  plannedDate  DateTime @db.Date
+  status       String   @default("PLANNED")
+  themeConcept String
+  objective    String
+  linkUrl      String?
+
+  @@index([plannedDate])
+}
+
+model CustomerReview {
+  id             String        @id @default(cuid())
+  outletId       String
+  source         String
+  reviewerName   String
+  rating         Int
+  reviewText     String?
+  sentiment      SentimentType @default(POSITIVE)
+  followUpStatus String        @default("NONE")
+  reviewDate     DateTime      @db.Date @default(now())
+
+  outlet         Outlet        @relation(fields: [outletId], references: [id])
+
+  @@index([outletId, reviewDate])
+}
+
+// ----------------------------------------------------------------------------
+// 6. MODUL OPERATIONS (CHECKLIST, INVENTORY, WASTE, MAINTENANCE)
+// ----------------------------------------------------------------------------
+
+model DailyChecklistTemplate {
+  id          String        @id @default(cuid())
+  divisionId  String
+  type        ChecklistType
+  title       String
+  items       Json
+  isActive    Boolean       @default(true)
+
+  division    Division      @relation(fields: [divisionId], references: [id])
+  submissions DailyChecklistSubmission[]
+}
+
+model DailyChecklistSubmission {
+  id            String                 @id @default(cuid())
+  outletId      String
+  templateId    String
+  submittedById String
+  date          DateTime               @db.Date
+  responses     Json
+  scorePct      Float
+  notes         String?
+  createdAt     DateTime               @default(now())
+
+  outlet        Outlet                 @relation(fields: [outletId], references: [id])
+  template      DailyChecklistTemplate @relation(fields: [templateId], references: [id])
+  submittedBy   User                   @relation(fields: [submittedById], references: [id])
+
+  @@index([outletId, date])
+}
+
+model CustomerComplaint {
+  id                String            @id @default(cuid())
+  outletId          String
+  complaintDate     DateTime          @db.Date
+  customerName      String
+  phone             String?
+  complaintCategory ComplaintCategory
+  description       String
+  resolution        String?
+  status            ComplaintStatus   @default(OPEN)
+  slaDeadline       DateTime?
+  resolvedAt        DateTime?
+
+  outlet            Outlet            @relation(fields: [outletId], references: [id])
+
+  @@index([outletId, status])
+}
+
+model OutletInventoryItem {
+  id             String      @id @default(cuid())
+  outletId       String
+  productId      String
+  currentStock   Float       @default(0)
+  minBufferStock Float       @default(0)
+  unit           String
+
+  outlet         Outlet      @relation(fields: [outletId], references: [id])
+  product        ProductItem @relation(fields: [productId], references: [id])
+
+  @@unique([outletId, productId])
+}
+
+model StockOpname {
+  id            String            @id @default(cuid())
+  outletId      String
+  conductedById String
+  opnameDate    DateTime          @db.Date
+  notes         String?
+  status        String            @default("COMPLETED")
+
+  outlet        Outlet            @relation(fields: [outletId], references: [id])
+  conductedBy   User              @relation(fields: [conductedById], references: [id])
+  items         StockOpnameItem[]
+
+  @@index([outletId, opnameDate])
+}
+
+model StockOpnameItem {
+  id            String      @id @default(cuid())
+  opnameId      String
+  productId     String
+  systemStock   Float
+  physicalStock Float
+  difference    Float
+  reason        String?
+
+  opname        StockOpname @relation(fields: [opnameId], references: [id], onDelete: Cascade)
+  product       ProductItem @relation(fields: [productId], references: [id])
+}
+
+model WasteLog {
+  id           String      @id @default(cuid())
+  outletId     String
+  recordedById String
+  date         DateTime    @db.Date
+  productId    String
+  quantity     Float
+  unit         String
+  reason       String
+  costAmount   Float
+  createdAt    DateTime    @default(now())
+
+  outlet       Outlet      @relation(fields: [outletId], references: [id])
+  recordedBy   User        @relation(fields: [recordedById], references: [id])
+  product      ProductItem @relation(fields: [productId], references: [id])
+
+  @@index([outletId, date])
+}
+
+model MaintenanceTicket {
+  id            String              @id @default(cuid())
+  outletId      String
+  reportedById  String
+  equipmentName String
+  priority      MaintenancePriority @default(MEDIUM)
+  problemDesc   String
+  status        MaintenanceStatus   @default(REPORTED)
+  cost          Float?              @default(0)
+  repairedAt    DateTime?
+  createdAt     DateTime            @default(now())
+
+  outlet        Outlet              @relation(fields: [outletId], references: [id])
+  reportedBy    User                @relation(fields: [reportedById], references: [id])
+
+  @@index([outletId, status])
+}
+
+// ----------------------------------------------------------------------------
+// 7. MODUL PRODUCTS (MASTER MENU, RESEP/HPP, PURCHASING & QC)
+// ----------------------------------------------------------------------------
+
+model ProductCategory {
+  id       String        @id @default(cuid())
+  name     String        @unique
+  slug     String        @unique
+
+  products ProductItem[]
+}
+
+model ProductItem {
+  id           String          @id @default(cuid())
+  categoryId   String
+  code         String          @unique
+  name         String
+  type         ProductType
+  unit         String
+  sellingPrice Float?
+  standardCost Float
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+
+  category     ProductCategory @relation(fields: [categoryId], references: [id])
+  
+  recipeAsFinished    Recipe?                @relation("FinishedGoodRecipe")
+  recipeAsIngredient  RecipeIngredient[]
+  inventoryItems      OutletInventoryItem[]
+  stockOpnameItems    StockOpnameItem[]
+  wasteLogs           WasteLog[]
+  poItems             PurchaseOrderItem[]
+}
+
+model Recipe {
+  id                String             @id @default(cuid())
+  finishedProductId String             @unique
+  yieldQuantity     Float              @default(1)
+  yieldUnit         String             @default("PORSI")
+  laborCostEstimate Float              @default(0)
+  totalHpp          Float              @default(0)
+
+  finishedProduct   ProductItem        @relation("FinishedGoodRecipe", fields: [finishedProductId], references: [id])
+  ingredients       RecipeIngredient[]
+}
+
+model RecipeIngredient {
+  id            String      @id @default(cuid())
+  recipeId      String
+  rawMaterialId String
+  quantity      Float
+  unit          String
+  costPerUnit   Float
+
+  recipe        Recipe      @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  rawMaterial   ProductItem @relation(fields: [rawMaterialId], references: [id])
+}
+
+model Supplier {
+  id            String          @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String
+  email         String?
+  address       String?
+  paymentTerms  String?
+  rating        Float           @default(5.0)
+  isActive      Boolean         @default(true)
+
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id                   String              @id @default(cuid())
+  poNumber             String              @unique
+  supplierId           String
+  outletId             String
+  createdById          String
+  orderDate            DateTime            @db.Date
+  expectedDeliveryDate DateTime?           @db.Date
+  totalAmount          Float
+  status               PoStatus            @default(DRAFT)
+  notes                String?
+  createdAt            DateTime            @default(now())
+
+  supplier             Supplier            @relation(fields: [supplierId], references: [id])
+  outlet               Outlet              @relation(fields: [outletId], references: [id])
+  createdBy            User                @relation(fields: [createdById], references: [id])
+  items                PurchaseOrderItem[]
+  receivingQc          ReceivingQc?
+
+  @@index([outletId, status])
+}
+
+model PurchaseOrderItem {
+  id          String        @id @default(cuid())
+  poId        String
+  productId   String
+  orderedQty  Float
+  unitPrice   Float
+  receivedQty Float         @default(0)
+
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product     ProductItem   @relation(fields: [productId], references: [id])
+}
+
+model ReceivingQc {
+  id                 String        @id @default(cuid())
+  poId               String        @unique
+  outletId           String
+  receivedById       String
+  receivingDate      DateTime      @db.Date
+  invoiceNo          String?
+  passStatus         QcStatus      @default(PASSED)
+  inspectionDetails  Json
+  notes              String?
+
+  po                 PurchaseOrder @relation(fields: [poId], references: [id])
+  outlet             Outlet        @relation(fields: [outletId], references: [id])
+  receivedBy         User          @relation(fields: [receivedById], references: [id])
+}
+
+// ----------------------------------------------------------------------------
+// 8. MODUL EXECUTIVE ANALYTICS (KPI ENGINE & DASHBOARD)
+// ----------------------------------------------------------------------------
+
+model KpiWeight {
+  id          String        @id @default(cuid())
+  divisionId  String
+  kpiId       String
+  weightPct   Float
+  greenMin    Float
+  yellowMin   Float
+  redMax      Float
+
+  division    Division      @relation(fields: [divisionId], references: [id])
+  kpi         KpiDefinition @relation(fields: [kpiId], references: [id])
+
+  @@unique([divisionId, kpiId])
+}
+
+model ExecutiveKpiSnapshot {
+  id            String      @id @default(cuid())
   outletId      String
   divisionId    String
-  periodStart   DateTime @db.Date
-  periodEnd     DateTime @db.Date
-  aggregatedData Json    
-  conclusion    String?  
-  createdAt     DateTime @default(now())
+  periodDate    DateTime    @db.Date
+  periodType    String
+  weightedScore Float
+  scoreStatus   ScoreStatus @default(GREEN)
+  metrics       Json
+
+  outlet        Outlet      @relation(fields: [outletId], references: [id])
+  division      Division    @relation(fields: [divisionId], references: [id])
+
+  @@unique([outletId, divisionId, periodDate, periodType])
+  @@index([periodDate, outletId])
+}
+
+model EarlyWarningAlert {
+  id             String        @id @default(cuid())
+  outletId       String
+  kpiId          String?
+  alertType      String
+  severity       String
+  message        String
+  isAcknowledged Boolean       @default(false)
+  triggeredAt    DateTime      @default(now())
+
+  outlet         Outlet        @relation(fields: [outletId], references: [id])
+  kpi            KpiDefinition? @relation(fields: [kpiId], references: [id])
+
+  @@index([outletId, isAcknowledged])
+}
+
+model ExecutiveDecision {
+  id                String    @id @default(cuid())
+  periodStart       DateTime  @db.Date
+  periodEnd         DateTime  @db.Date
+  outletId          String?
+  divisionId        String?
+  creatorId         String
+  title             String
+  strategicDecision String
+  actionItems       Json
+  createdAt         DateTime  @default(now())
+
+  outlet            Outlet?   @relation(fields: [outletId], references: [id])
+  division          Division? @relation(fields: [divisionId], references: [id])
+  creator           User      @relation(fields: [creatorId], references: [id])
+}
+
+// ----------------------------------------------------------------------------
+// 9. MODUL SYSTEM ADMIN & AUDIT LOGGING
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  action     AuditAction
+  entityName String
+  entityId   String
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime    @default(now())
+
+  user       User?       @relation(fields: [userId], references: [id])
+
+  @@index([entityName, entityId])
+  @@index([timestamp])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// 10. MODUL AI INTELLIGENCE (GEMINI INTEGRATION)
+// ----------------------------------------------------------------------------
+
+model AiInsightLog {
+  id              String   @id @default(cuid())
+  scopeType       String
+  scopeId         String?
+  periodDate      DateTime @db.Date
+  summaryText     String
+  keyHighlights   Json
+  recommendations Json
+  dataSources     Json
+  generatedAt     DateTime @default(now())
+
+  @@index([periodDate, scopeType])
+}
+
+model AiRootCauseAnalysis {
+  id                String   @id @default(cuid())
+  issueTopic        String
+  sourceProblems    Json
+  rootCauseSummary  String
+  kaizenAssessment  String
+  suggestedAction   String
+  analyzedAt        DateTime @default(now())
+}
+
+model AiQueryHistory {
+  id                   String   @id @default(cuid())
+  userId               String
+  naturalLanguageQuery String
+  resolvedFilter       Json
+  responseSummary      String
+  timestamp            DateTime @default(now())
+
+  user                 User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, timestamp])
+}
+
+model AiAnomalyDetection {
+  id            String   @id @default(cuid())
+  outletId      String
+  metricName    String
+  anomalyType   String
+  expectedValue Float
+  actualValue   Float
+  deviationPct  Float
+  explanation   String
+  status        String   @default("NEW")
+  detectedAt    DateTime @default(now())
 
   outlet        Outlet   @relation(fields: [outletId], references: [id])
-  division      Division @relation(fields: [divisionId], references: [id])
+
+  @@index([outletId, detectedAt])
 }

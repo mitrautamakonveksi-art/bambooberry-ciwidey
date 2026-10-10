@@ -1,12 +1,16 @@
 import Link from "next/link"
 import { getDashboardStats } from "@/server/actions/dashboard-actions"
+import { getCurrentUser } from "@/shared/lib/auth"
+import { getEffectiveOutlet } from "@/shared/lib/outlet-context"
 import OverviewChart from "@/components/charts/OverviewChart"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 export default async function DashboardPage() {
-  const stats = await getDashboardStats()
+  const user = await getCurrentUser()
+  const effectiveOutlet = await getEffectiveOutlet(user)
+  const stats = await getDashboardStats(effectiveOutlet.outletId)
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -15,9 +19,16 @@ export default async function DashboardPage() {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Executive</h2>
           <p className="text-slate-500">Ringkasan performa operasional hari ini.</p>
         </div>
-        <Link href="/reports/daily/start">
-          <Button className="bg-[#2A7C13] hover:bg-[#2A7C13]/90">+ Isi Laporan Baru</Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/analytics">
+            <Button variant="outline" className="border-slate-300 text-xs">
+              Executive Analytics & EWS →
+            </Button>
+          </Link>
+          <Link href="/reports/daily/start">
+            <Button className="bg-[#2A7C13] hover:bg-[#2A7C13]/90 text-xs">+ Isi Laporan Baru</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

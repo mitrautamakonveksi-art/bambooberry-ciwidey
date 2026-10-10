@@ -1,25 +1,49 @@
 import Link from "next/link"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/shared/lib/prisma"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
 import { processApproval } from "@/server/actions/approval-actions"
+import { getCurrentUser } from "@/shared/lib/auth"
+import { getEffectiveOutlet } from "@/shared/lib/outlet-context"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
-const prisma = new PrismaClient()
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string; outletId?: string }>
+}) {
+  const user = await getCurrentUser()
+  const effectiveOutlet = await getEffectiveOutlet(user)
+  const resolvedParams = searchParams ? await searchParams : {}
+  const targetOutletId = resolvedParams?.outletId || effectiveOutlet.outletId
+  const page = Math.max(1, parseInt(resolvedParams?.page || "1", 10))
+  const pageSize = 20
+  const skip = (page - 1) * pageSize
 
-export default async function ReportsPage() {
-  const reports = await prisma.dailyReport.findMany({
-    orderBy: { date: 'desc' },
-    include: {
-      user: true,
-      outlet: true,
-      items: { include: { kpi: true, kaizen: true } }
-    }
-  })
+  const whereClause = targetOutletId ? { outletId: targetOutletId } : undefined
+
+  const [reports, totalCount] = await Promise.all([
+    prisma.dailyReport.findMany({
+      where: whereClause,
+      orderBy: { date: "desc" },
+      take: pageSize,
+      skip,
+      include: {
+        user: true,
+        outlet: true,
+        items: { include: { kpi: true, kaizen: true } },
+      },
+    }),
+    prisma.dailyReport.count({
+      where: whereClause,
+    }),
+  ])
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -138,6 +162,38 @@ export default async function ReportsPage() {
               Belum ada laporan harian yang dibuat. Mulai dengan mengisi laporan shift baru.
             </CardContent>
           </Card>
+        )}
+
+        {totalCount > pageSize && (
+          <div className="flex items-center justify-between pt-4 border-t border-slate-200 text-xs text-slate-600">
+            <span>
+              Menampilkan {reports.length} dari {totalCount} laporan (Halaman {page} dari {totalPages})
+            </span>
+            <div className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link href={`/reports?page=${page - 1}`}>
+                  <Button variant="outline" size="sm">
+                    Sebelumnya
+                  </Button>
+                </Link>
+              ) : (
+                <Button variant="outline" size="sm" disabled>
+                  Sebelumnya
+                </Button>
+              )}
+              {page < totalPages ? (
+                <Link href={`/reports?page=${page + 1}`}>
+                  <Button variant="outline" size="sm">
+                    Selanjutnya
+                  </Button>
+                </Link>
+              ) : (
+                <Button variant="outline" size="sm" disabled>
+                  Selanjutnya
+                </Button>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

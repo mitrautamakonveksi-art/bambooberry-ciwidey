@@ -1,5 +1,7 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/shared/lib/prisma"
 import { setKpiTarget } from "@/server/actions/kpi-actions"
+import { getCurrentUser } from "@/shared/lib/auth"
+import { getEffectiveOutlet } from "@/shared/lib/outlet-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,17 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Target, TrendingUp } from "lucide-react"
 
-const prisma = new PrismaClient()
-
 export default async function KpiManagementPage() {
+  const user = await getCurrentUser()
+  const effectiveOutlet = await getEffectiveOutlet(user)
+
   const [kpis, outlets, activeTargets] = await Promise.all([
     prisma.kpiDefinition.findMany({ include: { division: true } }),
-    prisma.outlet.findMany({ where: { isActive: true } }),
+    prisma.outlet.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.kpiTarget.findMany({
       include: { kpi: { include: { division: true } }, outlet: true },
       orderBy: { outlet: { name: 'asc' } }
     })
   ])
+
+  const defaultOutletId = effectiveOutlet.outletId || outlets[0]?.id
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -36,7 +41,7 @@ export default async function KpiManagementPage() {
               <form action={setKpiTarget} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Outlet</Label>
-                  <Select name="outletId" required>
+                  <Select name="outletId" required defaultValue={defaultOutletId}>
                     <SelectTrigger><SelectValue placeholder="Pilih Outlet" /></SelectTrigger>
                     <SelectContent>{outlets.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent>
                   </Select>
